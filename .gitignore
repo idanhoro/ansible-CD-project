@@ -162,3 +162,4 @@ vsts-agent-win-x64-2.204.0.zip
 vsts-agent-win-x64-2.204.0
 *.pem
 /artifact_terraform
+*.ini

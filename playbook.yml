@@ -1,0 +1,60 @@
+---
+- name: Application servers setup
+  become: true
+  gather_facts: false
+  hosts: all
+
+  tasks:
+    - name: Update apt packages.
+      become: true
+      apt:
+        upgrade: 'True'
+        update_cache: true
+        
+    - name: install node version 14
+      shell: curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash - && sudo apt-get install -y nodejs
+      args:
+        warn: false
+
+    - name: reinstall nodemon
+      shell: sudo npm install -g nodemon
+      args:
+        warn: false
+
+    - name: Transfer artifact files from agents to ansible hosts
+      synchronize:
+        src: /home/ubuntu/artifact/
+        dest: "{{ application_directory }}"
+
+    - name: Creates the .env File
+      template:
+        src: templates/env.j2
+        dest: "{{ application_directory }}/.env"
+
+    - name: Install Npm pm2 Module
+      npm:
+        name: pm2
+        state: present
+        global: yes
+
+    - name: Run pm2 startup
+      shell: pm2 start npm -- run dev && pm2 save && pm2 startup
+      args:
+        chdir: "{{ application_directory }}"
+        executable: /bin/bash
+
+    - name: Run pm2 settings
+      become: true
+      shell: "env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u {{ VM_username }} --hp /home/{{ VM_username }}"
+      args:
+        executable: /bin/bash
+
+    - name: Database init
+      shell: npm run initdb
+      args:
+        chdir: "{{ application_directory }}"
+      run_once: ture
+
+    - name: Reboot wep servers
+      reboot:
+
